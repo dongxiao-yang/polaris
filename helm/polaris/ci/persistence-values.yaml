@@ -20,10 +20,10 @@
 image:
   pullPolicy: Never
 
-authentication:
-  tokenBroker:
-    secret:
-      name: polaris-token-broker
+#authentication:
+#  tokenBroker:
+#    secret:
+#      name: polaris-token-broker
 
 logging:
   file:
