@@ -18,7 +18,7 @@
 #
 
 image:
-  pullPolicy: Never
+  pullPolicy: IfNotPresent
 
 #authentication:
 #  tokenBroker:
@@ -30,7 +30,7 @@ logging:
     enabled: true
     json: true
     storage:
-      size: 50Mi
+      size: 100Mi
 
 persistence:
   type: relational-jdbc

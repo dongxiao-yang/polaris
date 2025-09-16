@@ -208,7 +208,7 @@ extraServices:
       - name: http
         port: 8181
         targetPort: 8181
-        nodePort: 31881
+        nodePort: 30881
 
 # Polaris Ingress settings.
 # These settings generate an Ingress resource that routes external traffic to the Polaris service
@@ -244,7 +244,12 @@ ingress:
 # resources, such as Minikube. If you do want to specify resources, uncomment the following
 # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
 resources:
-  {}
+   requests:
+     cpu: 16
+     memory: 64Gi
+   limits:
+     cpu: 16
+     memory: 64Gi
   # limits:
   #   cpu: 100m
   #   memory: 128Mi
@@ -267,15 +272,15 @@ autoscaling:
 
 # -- Node labels which must match for the polaris pod to be scheduled on that node. See https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector.
 nodeSelector:
-  role: clickhouse
+  role: polaris
   # kubernetes.io/os: linux
 
 # -- A list of tolerations to apply to polaris pods. See https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/.
 tolerations:
   - effect: NoSchedule
-    key: clickhouse
+    key: iceberg
     operator: Equal
-    value: clickhouse
+    value: polaris
 #  - key: "node-role.kubernetes.io/control-plane"
 #    operator: "Exists"
 #    effect: "NoSchedule"
@@ -492,7 +497,7 @@ logging:
     # settings.
     storage:
       # -- The storage class name of the persistent volume claim to create.
-      className: clickhouse-disk-0
+      className: openebs-hostpath
       # -- The size of the persistent volume claim to create.
       size: 512Gi
       # -- Labels to add to the persistent volume claim spec selector; a persistent volume with
