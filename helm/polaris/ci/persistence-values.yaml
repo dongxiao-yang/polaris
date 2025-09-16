@@ -18,19 +18,19 @@
 #
 
 image:
-  pullPolicy: Never
+  pullPolicy: IfNotPresent
 
-authentication:
-  tokenBroker:
-    secret:
-      name: polaris-token-broker
+#authentication:
+#  tokenBroker:
+#    secret:
+#      name: polaris-token-broker
 
 logging:
   file:
     enabled: true
     json: true
     storage:
-      size: 50Mi
+      size: 100Mi
 
 persistence:
   type: relational-jdbc

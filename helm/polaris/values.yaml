@@ -196,7 +196,7 @@ managementService:
 # -- Additional service definitions. All service definitions always select all Polaris pods. Use
 # this if you need to expose specific ports with different configurations, e.g. expose polaris-http
 # with an alternate LoadBalancer service instead of ClusterIP.
-extraServices: []
+  #extraServices: []
   #  - # -- The suffix to append to the service name. Required. It must be unique. If it does not
   #    # start with a hyphen, a hyphen will be inserted between the base service name and the suffix.
   #    nameSuffix: "ext"
@@ -215,6 +215,15 @@ extraServices: []
   #    externalTrafficPolicy: Cluster
   #    trafficDistribution: PreferClose
   #    annotations: {}
+
+extraServices:
+  - nameSuffix: polaris-nodeport
+    type: NodePort
+    ports:
+      - name: http
+        port: 8181
+        targetPort: 8181
+        nodePort: 30881
 
 # Polaris Ingress settings.
 # These settings generate an Ingress resource that routes external traffic to the Polaris service
@@ -250,7 +259,12 @@ ingress:
 # resources, such as Minikube. If you do want to specify resources, uncomment the following
 # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
 resources:
-  {}
+   requests:
+     cpu: 16
+     memory: 64Gi
+   limits:
+     cpu: 16
+     memory: 64Gi
   # limits:
   #   cpu: 100m
   #   memory: 128Mi
@@ -273,11 +287,15 @@ autoscaling:
 
 # -- Node labels which must match for the polaris pod to be scheduled on that node. See https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector.
 nodeSelector:
-  {}
+  role: polaris
   # kubernetes.io/os: linux
 
 # -- A list of tolerations to apply to polaris pods. See https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/.
-tolerations: []
+tolerations:
+  - effect: NoSchedule
+    key: iceberg
+    operator: Equal
+    value: polaris
 #  - key: "node-role.kubernetes.io/control-plane"
 #    operator: "Exists"
 #    effect: "NoSchedule"
@@ -360,7 +378,8 @@ advancedConfig:
 # https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.27/#envvar-v1-core
 # This can be useful to get configuration values from Kubernetes secrets or config maps.
 extraEnv:
-  []
+  - name: GOOGLE_APPLICATION_CREDENTIALS
+    value: /etc/gcp/gcs.json
 #  - name: AWS_STORAGE_BUCKET
 #    value: s3://xxxxx/
 #  - name: AWS_ACCESS_KEY_ID
@@ -375,12 +394,18 @@ extraEnv:
 #        key: secret_access_key
 
 # -- Extra volumes to add to the polaris pod. See https://kubernetes.io/docs/concepts/storage/volumes/.
-extraVolumes: []
+extraVolumes:
+  - name: gcp-creds
+    secret:
+      secretName: gcp-creds-secret
   # - name: extra-volume
   #   emptyDir: {}
 
 # -- Extra volume mounts to add to the polaris container. See https://kubernetes.io/docs/concepts/storage/volumes/.
-extraVolumeMounts: []
+extraVolumeMounts:
+  - name: gcp-creds
+    mountPath: /etc/gcp
+    readOnly: true
   # - name: extra-volume
   #   mountPath: /usr/share/extra-volume
 
@@ -487,7 +512,7 @@ logging:
     # settings.
     storage:
       # -- The storage class name of the persistent volume claim to create.
-      className: standard
+      className: openebs-hostpath
       # -- The size of the persistent volume claim to create.
       size: 512Gi
       # -- Labels to add to the persistent volume claim spec selector; a persistent volume with
@@ -582,7 +607,7 @@ authentication:
     type: default
   # -- The `ActiveRolesProvider` implementation to use. Only one built-in type is supported: default.
   activeRolesProvider:
-    type: default
+    type: internal
   # -- The token service (`IcebergRestOAuth2ApiService`) implementation to use. Two built-in types are supported: default and disabled.
   # Only relevant when using internal (or mixed) authentication. When using external authentication, the token service is always disabled.
   tokenService:
