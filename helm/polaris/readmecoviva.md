@@ -18,10 +18,17 @@ kubectl create secret generic polaris-persistence -n polaris \
 
 
 
-helm upgrade --install --namespace polaris \
---values helm/polaris/ci/persistence-values.yaml \
-polaris helm/polaris
+[//]: # (helm upgrade --install --namespace polaris \)
 
+[//]: # (--values helm/polaris/ci/persistence-values.yaml \)
+
+[//]: # (polaris helm/polaris)
+
+
+helm upgrade --install polaris helm/polaris \
+--namespace polaris \
+--values helm/polaris/values.yaml \
+--values helm/polaris/ci/persistence-values.yaml
 
 
 kubectl wait --namespace polaris --for=condition=ready pod --selector=app.kubernetes.io/name=polaris --timeout=120s
@@ -117,3 +124,15 @@ runpy.run_path("/root/spark-3.5.5-bin-hadoop3/eco_page.py", run_name="__main__")
 CALL polaris.system.expire_snapshots('default.eco_page_flow_pt1m_dist', TIMESTAMP '2025-09-18 08:54:00',2);
 
 CALL  polaris.system.remove_orphan_files(table => 'default.eco_page_flow_pt1m_dist', location => 'gs://conviva-prod-datalake/dpi-catalog/default/eco_page_flow_pt1m_dist/data' , dry_run => TRUE);
+
+
+
+# remove partion filed 
+
+ALTER TABLE polaris.default.eco_page_flow_pt1m_dist DROP PARTITION FIELD bucket(16, clientId);
+
+ALTER TABLE polaris.default.eco_cross_page_flow_pt1m_dist DROP PARTITION FIELD bucket(16, clientId);
+
+ALTER TABLE polaris.default.eco_event_summary_pt1m_dist DROP PARTITION FIELD bucket(16, clientId);
+
+ALTER TABLE polaris.default.eco_service_flow_pt1m_dist DROP PARTITION FIELD bucket(16, clientId);

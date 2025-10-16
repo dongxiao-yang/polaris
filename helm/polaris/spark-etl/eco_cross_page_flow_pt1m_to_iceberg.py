@@ -11,6 +11,14 @@ from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import col, to_timestamp
 import argparse
 
+def repartition_and_sort(df: DataFrame) -> DataFrame:
+    """Repartition by customerId and sort within each partition."""
+    return (
+        df
+        .repartitionByRange("customerId","timestampMs")
+        # .sortWithinPartitions("timestampMs", "country", "city", "flowId")
+    )
+
 def create_spark_session(app_name: str = "ParquetToIceberg-CROSS") -> SparkSession:
     return SparkSession.builder.appName(app_name).getOrCreate()
 
@@ -78,6 +86,7 @@ def main():
         df = read_parquet(spark, input_path)
         df = convert_timestamp_columns(df)
         df = select_columns(df, columns_to_write)
+        df = repartition_and_sort(df)
         write_to_iceberg(df, iceberg_table)
         print("[INFO] Data successfully written to Iceberg.")
     except Exception as e:

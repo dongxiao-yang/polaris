@@ -11,6 +11,15 @@ from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.functions import col, to_timestamp
 import argparse
 
+
+def repartition_and_sort(df: DataFrame) -> DataFrame:
+    """Repartition by customerId and sort within each partition."""
+    return (
+        df
+        .repartitionByRange("customerId","timestampMs")
+        # .sortWithinPartitions("timestampMs", "country", "city", "flowId")
+    )
+
 def create_spark_session(app_name: str = "ParquetToIceberg-SERVICE") -> SparkSession:
     return SparkSession.builder.appName(app_name).getOrCreate()
 
