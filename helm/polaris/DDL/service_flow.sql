@@ -105,8 +105,7 @@ CREATE TABLE polaris.default.eco_service_flow_pt1m_dist (
 USING iceberg
 PARTITIONED BY (
   customerId,
-  days(timestampMs),
-  bucket(16, clientId)
+  days(timestampMs)
 )
 TBLPROPERTIES (
   'format-version' = '2',
