@@ -4,29 +4,19 @@ metadata:
   name: nimtable
 ---
 apiVersion: v1
-kind: Secret
-metadata:
-  name: nimtable-admin-secret
-  namespace: nimtable
-type: Opaque
-stringData:
-  ADMIN_USERNAME: "admin"   # Initial admin username (change as needed)
-  ADMIN_PASSWORD: "admin"   # Initial admin password (change after first login)
----
-apiVersion: v1
 kind: ConfigMap
 metadata:
   name: nimtable-config
   namespace: nimtable
 data:
+  # Backend reads this file at /nimtable/config.yaml
   config.yaml: |
-    # Minimal app config; UI listens on 3000, backend service on 8182
     server:
-      port: 8182
       host: 0.0.0.0
+      port: 8182
     database:
-      # Point to the in-cluster PostgreSQL Service
-      url: jdbc:postgresql://nimtable-postgres:5432/nimtable_db
+      # JDBC points to the in-cluster PostgreSQL Service
+      url: jdbc:postgresql://nimtable-postgres:5432/nimtable
       username: nimtable_user
       password: nimtable_password
 ---
@@ -49,7 +39,7 @@ metadata:
   name: nimtable-postgres-hl
   namespace: nimtable
 spec:
-  # Headless service for the StatefulSet
+  # Headless service for stable DNS of the StatefulSet
   clusterIP: None
   ports:
     - name: postgres
@@ -81,8 +71,9 @@ spec:
           ports:
             - containerPort: 5432
           env:
+            # Same style as docker-compose
             - name: POSTGRES_DB
-              value: nimtable_db
+              value: nimtable
             - name: POSTGRES_USER
               value: nimtable_user
             - name: POSTGRES_PASSWORD
@@ -109,50 +100,33 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: nimtable
+  name: nimtable-backend
   namespace: nimtable
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: nimtable
+      app: nimtable-backend
   template:
     metadata:
       labels:
-        app: nimtable
+        app: nimtable-backend
     spec:
       containers:
         - name: nimtable
-          image: nimtable/nimtable:latest  # Replace with your actual image if different
+          image: ghcr.io/nimtable/nimtable:nightly   # Backend API
           imagePullPolicy: IfNotPresent
           ports:
-            - name: web
-              containerPort: 3000   # Web UI
             - name: api
-              containerPort: 8182   # Backend service port
-          envFrom:
-            - secretRef:
-                name: nimtable-admin-secret   # Initial admin credentials (effective on first run)
+              containerPort: 8182
           volumeMounts:
             - name: nimtable-config
-              mountPath: /app/config.yaml     # App expects config at this path
+              mountPath: /nimtable/config.yaml       # Backend expects this path
               subPath: config.yaml
-          readinessProbe:
-            httpGet:
-              path: /
-              port: web
-            initialDelaySeconds: 15
-            periodSeconds: 10
-          livenessProbe:
-            httpGet:
-              path: /
-              port: web
-            initialDelaySeconds: 30
-            periodSeconds: 20
           resources:
             requests:
-              cpu: 200m
-              memory: 512Mi
+              cpu: 300m
+              memory: 1Gi
             limits:
               cpu: "2"
               memory: 2Gi
@@ -164,14 +138,81 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: nimtable
+  name: nimtable-backend
   namespace: nimtable
 spec:
   selector:
-    app: nimtable
+    app: nimtable-backend
   ports:
     - name: http
-      port: 3000            # Service port
-      targetPort: 3000      # Pod containerPort
-      nodePort: 30080       # NodePort (30000–32767 by default)
+      port: 8182            # Cluster-internal API port
+      targetPort: 8182
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nimtable-web
+  namespace: nimtable
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nimtable-web
+  template:
+    metadata:
+      labels:
+        app: nimtable-web
+    spec:
+      containers:
+        - name: nimtable-web
+          image: ghcr.io/nimtable/nimtable-web:nightly   # Next.js frontend
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: web
+              containerPort: 3000
+          env:
+            # Frontend -> Backend API endpoint (in-cluster)
+            - name: JAVA_API_URL
+              value: "http://nimtable-backend:8182"
+
+            # Frontend DB for auth/session (same Postgres)
+            - name: DATABASE_URL
+              value: "postgresql://nimtable_user:nimtable_password@nimtable-postgres:5432/nimtable"
+
+            # Initial admin credentials (compose-style, plain env)
+            - name: ADMIN_USERNAME
+              value: "admin"
+            - name: ADMIN_PASSWORD
+              value: "admin"
+
+            # Auth/JWT secret(s) as plain env (compose-style)
+            # If the app uses NextAuth v4: NEXTAUTH_SECRET; v5: AUTH_SECRET; some builds use JWT_SECRET
+            - name: NEXTAUTH_SECRET
+              value: "please-change-me-nextauth-secret"
+            - name: AUTH_SECRET
+              value: "please-change-me-auth-secret"
+            - name: JWT_SECRET
+              value: "please-change-me-jwt-secret"
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nimtable-web
+  namespace: nimtable
+spec:
+  selector:
+    app: nimtable-web
+  ports:
+    - name: http
+      port: 3000            # Cluster-internal service port
+      targetPort: 3000
+      nodePort: 30080       # Exposed NodePort (default range 30000–32767)
   type: NodePort

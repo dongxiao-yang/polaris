@@ -122,3 +122,8 @@ TBLPROPERTIES (
   'write.parquet.compression-codec' = 'zstd',
   'write.target-file-size-bytes' = '536870912'
 );
+
+--
+--add sort order
+ALTER TABLE polaris.default.eco_events_dist
+  WRITE ORDERED BY clientId ASC NULLS LAST, eventTimeMs ASC;
